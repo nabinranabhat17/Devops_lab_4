@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lab 2 — Notes App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    header h1 { font-size: 2rem; color: #58a6ff; }
+    header p  { margin-top: .4rem; color: #8b949e; font-size: .9rem; }
+
+    .container { max-width: 700px; margin: 0 auto; }
+
+    /* Form */
+    .form-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .form-card h2 { font-size: 1.1rem; color: #58a6ff; margin-bottom: 1rem; }
+    .form-card input,
+    .form-card textarea {
+      width: 100%;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #c9d1d9;
+      font-size: .95rem;
+      padding: .6rem .8rem;
+      margin-bottom: .75rem;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .form-card input:focus,
+    .form-card textarea:focus { border-color: #58a6ff; }
+    .form-card textarea { resize: vertical; min-height: 80px; }
+    .form-card button {
+      background: #238636;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: .6rem 1.4rem;
+      font-size: .95rem;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .form-card button:hover { background: #2ea043; }
+
+    /* Status message */
+    #status {
+      font-size: .85rem;
+      margin-top: .5rem;
+      min-height: 1.2em;
+    }
+    #status.ok  { color: #3fb950; }
+    #status.err { color: #f85149; }
+
+    /* Notes list */
+    #notes-list h2 { font-size: 1.1rem; color: #58a6ff; margin-bottom: 1rem; }
+    .note-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      margin-bottom: .9rem;
+    }
+    .note-card h3   { font-size: 1rem; color: #e6edf3; }
+    .note-card p    { font-size: .875rem; color: #8b949e; margin-top: .35rem; line-height: 1.5; }
+    .note-card time { display: block; font-size: .75rem; color: #484f58; margin-top: .5rem; }
+
+    .empty { color: #484f58; font-size: .9rem; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Lab 2 — Notes App</h1>
+  <p>Docker Multi-Container: <strong>Nginx</strong> → <strong>Flask</strong> → <strong>MySQL</strong></p>
+</header>
+
+<div class="container">
+  <!-- Add note form -->
+  <div class="form-card">
+    <h2>Add a New Note</h2>
+    <input  id="title"   type="text"  placeholder="Title" />
+    <textarea id="content" placeholder="Content"></textarea>
+    <button onclick="addNote()">Save Note</button>
+    <div id="status"></div>
+  </div>
+
+  <!-- Notes list -->
+  <div id="notes-list">
+    <h2>All Notes</h2>
+    <div id="notes-container"><p class="empty">Loading…</p></div>
+  </div>
+</div>
+
+<script>
+  const API = '/api/notes';
+
+  async function loadNotes() {
+    const container = document.getElementById('notes-container');
+    try {
+      const res   = await fetch(API);
+      const notes = await res.json();
+      if (!notes.length) {
+        container.innerHTML = '<p class="empty">No notes yet. Add one above!</p>';
+        return;
+      }
+      container.innerHTML = notes.map(n => `
+        <div class="note-card">
+          <h3>${escHtml(n.title)}</h3>
+          <p>${escHtml(n.content)}</p>
+          <time>${n.created_at ?? ''}</time>
+        </div>
+      `).join('');
+    } catch {
+      container.innerHTML = '<p class="empty">Could not reach the backend.</p>';
+    }
+  }
+
+  async function addNote() {
+    const title   = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    const status  = document.getElementById('status');
+
+    if (!title || !content) {
+      setStatus('Both title and content are required.', 'err');
+      return;
+    }
+    try {
+      const res = await fetch(API, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ title, content }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      document.getElementById('title').value   = '';
+      document.getElementById('content').value = '';
+      setStatus('Note saved!', 'ok');
+      loadNotes();
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, 'err');
+    }
+  }
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('status');
+    el.textContent  = msg;
+    el.className    = type;
+    setTimeout(() => { el.textContent = ''; el.className = ''; }, 3000);
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  loadNotes();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: lab2
+data:
+  MYSQL_DATABASE: "lab2db"
+  MYSQL_USER: "lab2user"
+  DB_HOST: "mysql"
+  DB_PORT: "3306"
+  DB_NAME: "lab2db"

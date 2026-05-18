@@ -1,0 +1,90 @@
+# ============================================================
+# Task 4: Multi-Container Application — Docker Compose
+#
+# Services:
+#   db        — MySQL 8.0
+#   backend   — Python Flask REST API
+#   frontend  — Nginx serving static HTML/JS (reverse-proxy to backend)
+#
+# Usage:
+#   docker compose up --build          # build images and start all services
+#   docker compose up --build -d       # same, in detached mode
+#   docker compose down                # stop and remove containers/networks
+#   docker compose down -v             # also remove named volumes (clears DB)
+#   docker compose ps                  # list running services
+#   docker compose logs -f             # stream logs from all services
+#   docker compose logs -f backend     # logs from a single service
+#   docker compose exec backend bash   # open a shell in a running container
+#   docker compose scale backend=3     # scale backend to 3 replicas
+# ============================================================
+
+services:
+
+  # ── 1. Database ─────────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.0
+    container_name: lab2-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE:      lab2db
+      MYSQL_USER:          lab2user
+      MYSQL_PASSWORD:      lab2pass
+    volumes:
+      # Named volume — data persists across container restarts
+      - db_data:/var/lib/mysql
+      # Init script — runs once on first container creation
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "lab2user", "--password=lab2pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 2. Backend ──────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: lab2-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST:     db
+      DB_PORT:     "3306"
+      DB_USER:     lab2user
+      DB_PASSWORD: lab2pass
+      DB_NAME:     lab2db
+    depends_on:
+      db:
+        condition: service_healthy   # wait until MySQL is ready
+    networks:
+      - app_network
+    # Port 5000 is intentionally NOT exposed to the host;
+    # the frontend nginx container proxies to it internally.
+
+  # ── 3. Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: lab2-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"           # Redirects HTTP to HTTPS for notes.localhost
+      - "443:443"           # Access the app at https://notes.localhost
+    depends_on:
+      - backend
+    networks:
+      - app_network
+
+# ── Named volumes ──────────────────────────────────────────────────────────────
+volumes:
+  db_data:
+    driver: local
+
+# ── Custom bridge network ──────────────────────────────────────────────────────
+networks:
+  app_network:
+    driver: bridge

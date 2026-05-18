@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-init-script
+  namespace: lab2
+data:
+  init.sql: |
+    CREATE DATABASE IF NOT EXISTS lab2db;
+    USE lab2db;
+
+    CREATE TABLE IF NOT EXISTS notes (
+        id         INT          NOT NULL AUTO_INCREMENT,
+        title      VARCHAR(255) NOT NULL,
+        content    TEXT         NOT NULL,
+        created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+    INSERT INTO notes (title, content) VALUES
+        ('Welcome to Lab 2',  'This note was added by the database init script.'),
+        ('Docker Compose',    'docker compose up --build starts all services together.'),
+        ('Three-tier app',    'Frontend (Nginx) → Backend (Flask) → Database (MySQL).');
